@@ -1,0 +1,20 @@
+{
+  "product": "PixOrb",
+  "problem_statement": "SIH26166",
+  "pipeline": [
+    "ingestion",
+    "multi-resolution coarse alignment",
+    "SuperPoint + LightGlue primary; LoFTR learned fallback; SIFT last-resort fallback",
+    "RANSAC geometry",
+    "NCC parabolic sub-pixel refinement",
+    "grid-based ANMS",
+    "registration and evaluation"
+  ],
+  "desktop_ui": "PySide6",
+  "primary_matcher": "SuperPoint+LightGlue",
+  "fallback": "SIFT ratio-test fallback when learned backend is unavailable or fails",
+  "coordinate_convention": "source pixels to reference pixels",
+  "status": "PPT-aligned integrated build",
+  "learned_fallback": "LoFTR",
+  "classical_last_resort": "SIFT ratio-test"
+}
