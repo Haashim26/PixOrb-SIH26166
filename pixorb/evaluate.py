@@ -57,8 +57,18 @@ def evaluate(H_total, matches, candidate_count, reference, original_source, grid
     # overlap. Outside the overlap the reference is preserved rather than
     # blending against the black warp canvas.
     blend = cv2.addWeighted(reference, 0.5, warped, 0.5, 0)
-    overlay = reference.copy()
-    overlay[valid] = blend[valid]
+
+# Feather the overlap boundary so the visualization transitions smoothly
+# from the reference image to the registered source.
+    valid_u8 = valid.astype(np.uint8)
+    distance = cv2.distanceTransform(valid_u8, cv2.DIST_L2, 5)
+
+    feather_px = 12.0
+    alpha = np.clip(distance / feather_px, 0.0, 1.0).astype(np.float32)
+
+    overlay = reference.astype(np.float32) * (1.0 - alpha)
+    overlay += blend.astype(np.float32) * alpha
+    overlay = np.clip(overlay, 0, 255).astype(np.uint8)
     diff8 = np.zeros_like(reference, dtype=np.uint8)
     if valid.any():
         dvalid = diff[valid]
@@ -68,9 +78,7 @@ def evaluate(H_total, matches, candidate_count, reference, original_source, grid
             hi = lo + 1.0
         diff8 = np.clip((diff - lo) * 255.0 / (hi - lo), 0, 255).astype(np.uint8)
         diff8[~valid] = 0
-    # Make the overlap boundary explicit without altering the registered data.
-    boundary = cv2.morphologyEx(overlap, cv2.MORPH_GRADIENT, np.ones((3,3), np.uint8))
-    overlay[boundary > 0] = 255
+    
     metrics = {
         "candidate_matches": int(candidate_count),
         "final_match_count": int(len(matches)),

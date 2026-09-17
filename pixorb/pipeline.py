@@ -81,11 +81,137 @@ def run(reference_path, source_path, output_dir, model="homography", threshold=3
     np.save(str(out/"transform_source_to_reference.npy"),Htotal)
     save_matches(out/"match_points.json",final_original); save_metrics(out/"metrics.json",metrics)
     (out/"transform_source_to_reference.txt").write_text(np.array2string(Htotal,precision=10))
+    # Correspondence visualization:
+    # Keep every verified match in JSON/CSV, but display a representative
+    # spatially distributed subset so the figure remains readable.
+    #
+    # The visualization copy of the coarse-aligned source is cropped and
+    # resized only for presentation. The actual registration coordinates,
+    # transforms and saved match data are unchanged.
 
-    vis=np.hstack([ref.image,aligned]); off=ref.image.shape[1]
+    rows, cols = 6, 6
+    per_cell_display = 1
+    h, w = ref.image.shape[:2]
+
+    cells = {}
+
     for m in final_inliers:
-        cv2.line(vis,(int(round(m[2])),int(round(m[3]))),(int(round(m[0]))+off,int(round(m[1]))),255,1)
-        cv2.circle(vis,(int(round(m[2])),int(round(m[3]))),3,255,-1)
-        cv2.circle(vis,(int(round(m[0]))+off,int(round(m[1]))),3,255,-1)
-    cv2.imwrite(str(out/"matches.png"),vis)
+        x_ref, y_ref = float(m[2]), float(m[3])
+
+        c = min(
+            cols - 1,
+            max(0, int(x_ref / max(w, 1) * cols))
+        )
+        r = min(
+            rows - 1,
+            max(0, int(y_ref / max(h, 1) * rows))
+        )
+
+        cells.setdefault((r, c), []).append(m)
+
+    display_matches = []
+
+    for cell_matches in cells.values():
+        # Highest-confidence match is preferred for visualization.
+        cell_matches = sorted(
+            cell_matches,
+            key=lambda m: float(m[4]),
+            reverse=True
+        )
+        display_matches.extend(cell_matches[:per_cell_display])
+
+    # Crop black/empty margins from the visualization copy.
+    src_valid = (aligned > 5).astype(np.uint8) * 255
+    ys, xs = np.where(src_valid > 0)
+
+    if len(xs) > 0 and len(ys) > 0:
+        x0, x1 = int(xs.min()), int(xs.max()) + 1
+        y0, y1 = int(ys.min()), int(ys.max()) + 1
+
+        aligned_vis = aligned[y0:y1, x0:x1]
+
+        # Fit the cropped source into the same display height as reference.
+        display_h = h
+        display_w = max(
+            1,
+            int(round(aligned_vis.shape[1] * display_h / aligned_vis.shape[0]))
+        )
+
+        aligned_vis = cv2.resize(
+            aligned_vis,
+            (display_w, display_h),
+            interpolation=cv2.INTER_LINEAR
+        )
+
+        scale_x = display_w / max(aligned_vis.shape[1], 1)
+        scale_y = display_h / max(aligned_vis.shape[0], 1)
+
+        # Since the resize above already produced display_h x display_w,
+        # calculate the coordinate scale from the original crop dimensions.
+        crop_w = max(x1 - x0, 1)
+        crop_h = max(y1 - y0, 1)
+
+        scale_x = display_w / crop_w
+        scale_y = display_h / crop_h
+
+    else:
+        x0, y0 = 0, 0
+        aligned_vis = aligned.copy()
+
+        if aligned_vis.shape[:2] != (h, w):
+            aligned_vis = cv2.resize(
+                aligned_vis,
+                (w, h),
+                interpolation=cv2.INTER_LINEAR
+            )
+
+        display_w = aligned_vis.shape[1]
+        crop_w = aligned.shape[1]
+        crop_h = aligned.shape[0]
+
+        scale_x = display_w / max(crop_w, 1)
+        scale_y = h / max(crop_h, 1)
+
+    vis = np.hstack([ref.image, aligned_vis])
+    off = ref.image.shape[1]
+
+    for m in display_matches:
+        x_src, y_src, x_ref, y_ref = map(float, m[:4])
+
+        p_ref = (
+            int(round(x_ref)),
+            int(round(y_ref))
+        )
+
+        p_src = (
+            int(round((x_src - x0) * scale_x)) + off,
+            int(round((y_src - y0) * scale_y))
+        )
+
+        cv2.line(
+            vis,
+            p_ref,
+            p_src,
+            255,
+            1
+        )
+
+        cv2.circle(
+            vis,
+            p_ref,
+            3,
+            255,
+            -1
+        )
+
+        cv2.circle(
+            vis,
+            p_src,
+            3,
+            255,
+            -1
+        )
+
+    cv2.imwrite(str(out / "matches.png"), vis)
+        
     return {"reference":ref,"source":src,"coarse_aligned":aligned,"transform":Htotal,"matches":final_original,"metrics":metrics,"registered":warped,"overlay":overlay,"difference_map":diff8,"output_dir":str(out)}
