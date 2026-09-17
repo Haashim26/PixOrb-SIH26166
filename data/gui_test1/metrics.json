@@ -1,0 +1,105 @@
+{
+  "candidate_matches": 1062,
+  "final_match_count": 236,
+  "inlier_count": 236,
+  "inlier_ratio": 0.2222222222222222,
+  "rmse_px": 0.6478825972113045,
+  "mean_reprojection_error_px": 0.5607464796288043,
+  "median_reprojection_error_px": 0.5014275045659765,
+  "max_reprojection_error_px": 2.565097246427712,
+  "overlap_percent": 44.11921875,
+  "overlap_mae": 18.538713455200195,
+  "overlap_rmse": 21.7806453704834,
+  "grid_rows": 6,
+  "grid_cols": 6,
+  "occupied_cells": 25,
+  "eligible_overlap_cells": 25,
+  "total_cells": 36,
+  "grid_occupancy_ratio": 1.0,
+  "spatial_entropy_normalized": 0.9962140426691913,
+  "grid_count_cv": 0.14394311653782227,
+  "grid_counts": [
+    [
+      0,
+      10,
+      10,
+      10,
+      10,
+      5
+    ],
+    [
+      0,
+      10,
+      10,
+      10,
+      10,
+      10
+    ],
+    [
+      0,
+      10,
+      10,
+      10,
+      10,
+      10
+    ],
+    [
+      0,
+      9,
+      10,
+      10,
+      10,
+      10
+    ],
+    [
+      0,
+      10,
+      9,
+      9,
+      9,
+      5
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "backend": "SuperPoint+LightGlue",
+  "learned_available": true,
+  "fallback_used": false,
+  "fallback_reason": "",
+  "deduplicated_candidates": 1062,
+  "initial_ransac_inlier_count": 1021,
+  "initial_ransac_inlier_ratio": 0.9613935969868174,
+  "ransac_inlier_count": 1021,
+  "ransac_inlier_ratio": 0.9613935969868174,
+  "final_ransac_inlier_count": 236,
+  "final_ransac_inlier_ratio": 0.9833333333333333,
+  "overall_retained_ratio": 0.2222222222222222,
+  "subpixel_changed_count": 1021,
+  "model": "homography",
+  "ransac_threshold_px": 3.0,
+  "coarse_alignment": {
+    "scale": 1.491879947161913,
+    "rotation_deg": 0.011654981960813871,
+    "scale_confidence": 0.27911334451437,
+    "translation_dx": 45.97578390341272,
+    "translation_dy": -63.621682882550374,
+    "translation_confidence": 0.6654983764410018,
+    "pyramid_levels": 4
+  },
+  "reference_metadata": {
+    "sensor_name": "UNKNOWN",
+    "width": 800,
+    "height": 800
+  },
+  "source_metadata": {
+    "sensor_name": "UNKNOWN",
+    "width": 800,
+    "height": 800
+  }
+}

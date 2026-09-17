@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixOrb — Lunar Image Registration</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><header><div><div class="brand">PixOrb</div><div class="sub">SIH26166 · Multi-modal Lunar Image Correspondence</div></div><div class="badge">ISRO / Chandrayaan-2</div></header>
+<main><section class="hero"><h1>Accurate Lunar Image Registration</h1><p>Coarse-to-fine correspondence using multi-resolution alignment, SuperPoint + LightGlue, robust geometry, NCC sub-pixel refinement and grid-based ANMS.</p></section>
+<section class="upload"><div class="filebox"><label>REFERENCE IMAGE</label><input id="ref" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff,.cog"></div><div class="filebox"><label>SOURCE IMAGE</label><input id="src" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff,.cog"></div><button id="run">Run Registration</button><div id="status"></div></section>
+<section id="results" class="hidden"><nav><button class="tab active" data-tab="input">Input</button><button class="tab" data-tab="matches">Correspondences</button><button class="tab" data-tab="output">Registered Output</button><button class="tab" data-tab="metrics">Metrics</button></nav>
+<div id="input" class="panel active"><div class="two"><figure><figcaption>REFERENCE</figcaption><img id="reference"></figure><figure><figcaption>SOURCE</figcaption><img id="source"></figure></div></div>
+<div id="matches" class="panel"><img id="matches" class="large"></div>
+<div id="output" class="panel"><div class="subtabs"><button class="ot active" data-o="overlay">Overlay</button><button class="ot" data-o="registered">Registered Source</button><button class="ot" data-o="difference">Difference Map</button></div><img id="overlay" class="large out active"><img id="registered" class="large out"><img id="difference" class="large out"></div>
+<div id="metrics" class="panel"><div id="cards" class="cards"></div><pre id="json"></pre></div></section></main>
+<script src="/static/app.js"></script></body></html>
