@@ -5,6 +5,13 @@ Thin UI wrapper around the same pixorb registration pipeline
 used by the desktop application and FastAPI web application.
 
 The registration algorithm itself is NOT duplicated here.
+
+This file handles:
+    - image upload
+    - pipeline execution
+    - evaluation metric presentation
+    - visual result presentation
+    - artifact downloads
 """
 
 import sys
@@ -15,19 +22,21 @@ from pathlib import Path
 import streamlit as st
 
 
-# ---------------------------------------------------------------------------
-# Repository import
-# ---------------------------------------------------------------------------
+# ============================================================================
+# REPOSITORY IMPORT
+# ============================================================================
 
+# Make the repository root importable so `import pixorb` works correctly
+# on Streamlit Cloud.
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from pixorb.pipeline import run  # noqa: E402
 
 
-# ---------------------------------------------------------------------------
-# Page configuration
-# ---------------------------------------------------------------------------
+# ============================================================================
+# PAGE CONFIGURATION
+# ============================================================================
 
 st.set_page_config(
     page_title="PixOrb — Lunar Image Registration",
@@ -36,9 +45,9 @@ st.set_page_config(
 )
 
 
-# ---------------------------------------------------------------------------
-# Header
-# ---------------------------------------------------------------------------
+# ============================================================================
+# HEADER
+# ============================================================================
 
 st.title("🌙 PixOrb — Lunar Image Registration")
 
@@ -49,11 +58,12 @@ st.caption(
 )
 
 
-# ---------------------------------------------------------------------------
-# Formatting helpers
-# ---------------------------------------------------------------------------
+# ============================================================================
+# FORMATTING HELPERS
+# ============================================================================
 
 def number(value, digits=3):
+    """Safely format a numeric value."""
     if value is None:
         return "—"
 
@@ -64,6 +74,7 @@ def number(value, digits=3):
 
 
 def integer(value):
+    """Safely format an integer."""
     if value is None:
         return "—"
 
@@ -74,6 +85,7 @@ def integer(value):
 
 
 def percentage(value, digits=2):
+    """Format a ratio such as 0.9792 as a percentage."""
     if value is None:
         return "—"
 
@@ -84,6 +96,7 @@ def percentage(value, digits=2):
 
 
 def text_value(value):
+    """Safely convert a value to display text."""
     if value is None:
         return "—"
 
@@ -94,6 +107,7 @@ def text_value(value):
 
 
 def metric_card(label, value, help_text=None):
+    """Display a standard Streamlit metric card."""
     if help_text:
         st.metric(
             label=label,
@@ -107,28 +121,43 @@ def metric_card(label, value, help_text=None):
         )
 
 
-# ---------------------------------------------------------------------------
-# Input images
-# ---------------------------------------------------------------------------
+# ============================================================================
+# INPUT IMAGES
+# ============================================================================
 
 st.subheader("Input images")
 
 input_col1, input_col2 = st.columns(2)
 
 with input_col1:
+
     reference_file = st.file_uploader(
         "Reference image (fixed)",
-        type=["jpg", "jpeg", "png", "tif", "tiff"],
+        type=[
+            "jpg",
+            "jpeg",
+            "png",
+            "tif",
+            "tiff",
+        ],
         help=(
             "Example: LRO NAC or SELENE reference image. "
             "The reference image remains fixed during registration."
         ),
     )
 
+
 with input_col2:
+
     source_file = st.file_uploader(
         "Source image (moving)",
-        type=["jpg", "jpeg", "png", "tif", "tiff"],
+        type=[
+            "jpg",
+            "jpeg",
+            "png",
+            "tif",
+            "tiff",
+        ],
         help=(
             "Example: Chandrayaan-2 OHRC, TMC-2 or IIRS image. "
             "The source image is registered to the reference."
@@ -136,15 +165,18 @@ with input_col2:
     )
 
 
-# ---------------------------------------------------------------------------
-# Run registration
-# ---------------------------------------------------------------------------
+# ============================================================================
+# RUN REGISTRATION
+# ============================================================================
 
 run_clicked = st.button(
     "🚀 Run registration",
     type="primary",
     use_container_width=True,
-    disabled=not (reference_file and source_file),
+    disabled=not (
+        reference_file
+        and source_file
+    ),
 )
 
 
@@ -154,6 +186,10 @@ if run_clicked:
         "Running PixOrb: coarse alignment → learned matching → "
         "geometric verification → fine refinement..."
     ):
+
+        # ---------------------------------------------------------------
+        # Create a unique temporary workspace for this registration.
+        # ---------------------------------------------------------------
 
         run_id = uuid.uuid4().hex[:12]
 
@@ -170,6 +206,10 @@ if run_clicked:
             exist_ok=True,
         )
 
+        # ---------------------------------------------------------------
+        # Preserve uploaded file extensions.
+        # ---------------------------------------------------------------
+
         ref_suffix = Path(
             reference_file.name
         ).suffix.lower()
@@ -178,8 +218,15 @@ if run_clicked:
             source_file.name
         ).suffix.lower()
 
-        ref_path = input_dir / f"reference{ref_suffix}"
-        src_path = input_dir / f"source{src_suffix}"
+        ref_path = (
+            input_dir
+            / f"reference{ref_suffix}"
+        )
+
+        src_path = (
+            input_dir
+            / f"source{src_suffix}"
+        )
 
         ref_path.write_bytes(
             reference_file.getvalue()
@@ -191,8 +238,15 @@ if run_clicked:
 
         try:
 
+            # -----------------------------------------------------------
             # IMPORTANT:
-            # This calls the original PixOrb pipeline.
+            #
+            # The actual PixOrb algorithm is executed here.
+            #
+            # This Streamlit application does NOT duplicate or modify
+            # the registration algorithm.
+            # -----------------------------------------------------------
+
             result = run(
                 ref_path,
                 src_path,
@@ -212,7 +266,9 @@ if run_clicked:
                 "Please check the uploaded images and try again."
             )
 
-            with st.expander("Technical error"):
+            with st.expander(
+                "Technical error"
+            ):
                 st.exception(e)
 
             st.session_state.pop(
@@ -226,16 +282,20 @@ if run_clicked:
             )
 
 
-# ---------------------------------------------------------------------------
-# Results
-# ---------------------------------------------------------------------------
+# ============================================================================
+# RESULTS
+# ============================================================================
 
 if "last_result" in st.session_state:
 
-    result = st.session_state["last_result"]
+    result = st.session_state[
+        "last_result"
+    ]
 
     results_dir = Path(
-        st.session_state["last_results_dir"]
+        st.session_state[
+            "last_results_dir"
+        ]
     )
 
     metrics = result.get(
@@ -244,199 +304,247 @@ if "last_result" in st.session_state:
     )
 
 
-    # =======================================================================
-    # Success
-    # =======================================================================
+    # ========================================================================
+    # SUCCESS
+    # ========================================================================
 
     st.success(
         "Registration complete — PixOrb successfully processed the image pair."
     )
 
 
-    # =======================================================================
-    # Evaluation metrics
-    # =======================================================================
+    # ========================================================================
+    # EVALUATION METRICS
+    # ========================================================================
 
-    st.subheader("Evaluation metrics")
+    st.subheader(
+        "Evaluation metrics"
+    )
 
     st.caption(
-        "Geometric registration quality and matching statistics produced "
-        "directly by the PixOrb pipeline."
+        "Registration accuracy, correspondence quality and spatial coverage "
+        "computed directly by the PixOrb pipeline."
     )
 
 
-    # -----------------------------------------------------------------------
-    # Registration quality
-    # -----------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # 1. PRIMARY REGISTRATION QUALITY
+    # ------------------------------------------------------------------------
 
-    st.markdown("#### Registration quality")
+    st.markdown(
+        "#### Registration quality"
+    )
 
-    quality_cols = st.columns(4)
+    primary_col1, primary_col2, primary_col3 = st.columns(3)
 
-    with quality_cols[0]:
+    with primary_col1:
+
         metric_card(
-            "RMSE",
+            "Geometric RMSE",
             f"{number(metrics.get('rmse_px'), 3)} px",
             (
-                "Root mean square geometric residual of the "
-                "final verified matches."
+                "Root mean square geometric residual of "
+                "the final verified correspondences."
             ),
         )
 
-    with quality_cols[1]:
+    with primary_col2:
+
         metric_card(
             "Mean reprojection error",
             f"{number(metrics.get('mean_reprojection_error_px'), 3)} px",
             (
                 "Mean geometric reprojection error after "
-                "the final transform."
+                "the final transformation."
             ),
         )
 
-    with quality_cols[2]:
+    with primary_col3:
+
         metric_card(
-            "Median reprojection error",
-            f"{number(metrics.get('median_reprojection_error_px'), 3)} px",
+            "Final RANSAC inlier ratio",
+            percentage(
+                metrics.get(
+                    "final_ransac_inlier_ratio"
+                )
+            ),
             (
-                "Median geometric reprojection error of "
-                "the final matches."
-            ),
-        )
-
-    with quality_cols[3]:
-        metric_card(
-            "Max reprojection error",
-            f"{number(metrics.get('max_reprojection_error_px'), 3)} px",
-            (
-                "Largest geometric reprojection residual "
-                "among final matches."
+                "Percentage of final correspondences "
+                "that remain geometrically consistent."
             ),
         )
 
 
-    # -----------------------------------------------------------------------
-    # Matching and geometric verification
-    # -----------------------------------------------------------------------
+    st.markdown("")
 
-    st.markdown("#### Matching and geometric verification")
 
-    matching_cols = st.columns(4)
+    # ------------------------------------------------------------------------
+    # 2. CORRESPONDENCE SUMMARY
+    # ------------------------------------------------------------------------
 
-    with matching_cols[0]:
+    st.markdown(
+        "#### Correspondence summary"
+    )
+
+    match_col1, match_col2, match_col3 = st.columns(3)
+
+    with match_col1:
+
         metric_card(
-            "Candidate matches",
+            "Candidate correspondences",
             integer(
-                metrics.get("candidate_matches")
+                metrics.get(
+                    "candidate_matches"
+                )
             ),
             (
-                "Learned feature correspondences before "
-                "final geometric filtering."
+                "Learned feature correspondences "
+                "before final geometric filtering."
             ),
         )
 
-    with matching_cols[1]:
+    with match_col2:
+
         metric_card(
-            "Final matches",
+            "Final correspondences",
             integer(
-                metrics.get("final_match_count")
+                metrics.get(
+                    "final_match_count"
+                )
             ),
             (
                 "Correspondences retained after "
-                "the final verification stage."
+                "final verification."
             ),
         )
 
-    with matching_cols[2]:
+    with match_col3:
+
         metric_card(
-            "RANSAC inlier ratio",
+            "Retained from candidates",
             percentage(
-                metrics.get("final_ransac_inlier_ratio")
+                metrics.get(
+                    "overall_retained_ratio"
+                )
             ),
             (
-                "Final geometrically consistent matches "
-                "divided by final matches."
-            ),
-        )
-
-    with matching_cols[3]:
-        metric_card(
-            "Overall retained",
-            percentage(
-                metrics.get("overall_retained_ratio")
-            ),
-            (
-                "Final retained matches relative to "
-                "candidate matches."
+                "Final retained correspondences "
+                "relative to candidate correspondences."
             ),
         )
 
 
-    # -----------------------------------------------------------------------
-    # RANSAC verification
-    # -----------------------------------------------------------------------
+    st.markdown("")
 
-    st.markdown("#### RANSAC verification")
 
-    ransac_cols = st.columns(4)
+    # ------------------------------------------------------------------------
+    # 3. GEOMETRIC VERIFICATION
+    # ------------------------------------------------------------------------
 
-    with ransac_cols[0]:
-        metric_card(
-            "Initial RANSAC inliers",
-            integer(
-                metrics.get("initial_ransac_inlier_count")
-            ),
+    st.markdown(
+        "#### Geometric verification"
+    )
+
+    verification_col1, verification_col2 = st.columns(2)
+
+    # ------------------------------------------------------------------------
+    # RANSAC
+    # ------------------------------------------------------------------------
+
+    with verification_col1:
+
+        st.markdown(
+            "**RANSAC verification**"
         )
 
-    with ransac_cols[1]:
-        metric_card(
-            "Initial inlier ratio",
-            percentage(
-                metrics.get("initial_ransac_inlier_ratio")
-            ),
+        st.write(
+            f"Initial RANSAC inliers: "
+            f"**{integer(metrics.get('initial_ransac_inlier_count'))}**"
         )
 
-    with ransac_cols[2]:
-        metric_card(
-            "Final RANSAC inliers",
-            integer(
-                metrics.get("final_ransac_inlier_count")
-            ),
+        st.write(
+            f"Initial inlier ratio: "
+            f"**{percentage(metrics.get('initial_ransac_inlier_ratio'))}**"
         )
 
-    with ransac_cols[3]:
-        metric_card(
-            "Final inlier ratio",
-            percentage(
-                metrics.get("final_ransac_inlier_ratio")
-            ),
+        st.write(
+            f"Final RANSAC inliers: "
+            f"**{integer(metrics.get('final_ransac_inlier_count'))}**"
+        )
+
+        st.write(
+            f"Final inlier ratio: "
+            f"**{percentage(metrics.get('final_ransac_inlier_ratio'))}**"
         )
 
 
-    # -----------------------------------------------------------------------
-    # Spatial coverage
-    # -----------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # REPROJECTION ERROR
+    # ------------------------------------------------------------------------
 
-    st.markdown("#### Spatial coverage")
+    with verification_col2:
 
-    spatial_cols = st.columns(4)
+        st.markdown(
+            "**Reprojection error**"
+        )
 
-    with spatial_cols[0]:
+        st.write(
+            f"Mean: "
+            f"**{number(metrics.get('mean_reprojection_error_px'), 3)} px**"
+        )
+
+        st.write(
+            f"Median: "
+            f"**{number(metrics.get('median_reprojection_error_px'), 3)} px**"
+        )
+
+        st.write(
+            f"Maximum: "
+            f"**{number(metrics.get('max_reprojection_error_px'), 3)} px**"
+        )
+
+        st.write(
+            f"RMSE: "
+            f"**{number(metrics.get('rmse_px'), 3)} px**"
+        )
+
+
+    st.markdown("")
+
+
+    # ------------------------------------------------------------------------
+    # 4. SPATIAL COVERAGE
+    # ------------------------------------------------------------------------
+
+    st.markdown(
+        "#### Spatial coverage"
+    )
+
+    spatial_col1, spatial_col2 = st.columns(2)
+
+    with spatial_col1:
+
         metric_card(
             "Grid occupancy",
             percentage(
-                metrics.get("grid_occupancy_ratio")
+                metrics.get(
+                    "grid_occupancy_ratio"
+                )
             ),
             (
                 "Fraction of the spatial grid occupied "
-                "by final matches."
+                "by final correspondences."
             ),
         )
 
-    with spatial_cols[1]:
+    with spatial_col2:
+
         metric_card(
             "Spatial entropy",
             number(
-                metrics.get("spatial_entropy_normalized"),
+                metrics.get(
+                    "spatial_entropy_normalized"
+                ),
                 3,
             ),
             (
@@ -444,231 +552,258 @@ if "last_result" in st.session_state:
             ),
         )
 
-    with spatial_cols[2]:
-        metric_card(
-            "Occupied cells",
-            integer(
-                metrics.get("occupied_cells")
-            ),
+
+    spatial_detail_col1, spatial_detail_col2 = st.columns(2)
+
+    with spatial_detail_col1:
+
+        st.write(
+            f"**Occupied cells:** "
+            f"{integer(metrics.get('occupied_cells'))}"
         )
 
-    with spatial_cols[3]:
-        metric_card(
-            "Total grid cells",
-            integer(
-                metrics.get("total_cells")
-            ),
+    with spatial_detail_col2:
+
+        st.write(
+            f"**Total grid cells:** "
+            f"{integer(metrics.get('total_cells'))}"
         )
 
 
-    # -----------------------------------------------------------------------
-    # Image overlap
-    # -----------------------------------------------------------------------
+    st.markdown("")
 
-    st.markdown("#### Image overlap")
 
-    overlap_cols = st.columns(4)
+    # ------------------------------------------------------------------------
+    # 5. IMAGE OVERLAP
+    # ------------------------------------------------------------------------
 
-    with overlap_cols[0]:
+    st.markdown(
+        "#### Image overlap"
+    )
+
+    overlap_col1, overlap_col2, overlap_col3 = st.columns(3)
+
+    with overlap_col1:
+
         metric_card(
             "Overlap",
             f"{number(metrics.get('overlap_percent'), 2)}%",
         )
 
-    with overlap_cols[1]:
+    with overlap_col2:
+
         metric_card(
             "Overlap MAE",
             number(
-                metrics.get("overlap_mae"),
+                metrics.get(
+                    "overlap_mae"
+                ),
                 3,
             ),
         )
 
-    with overlap_cols[2]:
+    with overlap_col3:
+
         metric_card(
             "Overlap RMSE",
             number(
-                metrics.get("overlap_rmse"),
+                metrics.get(
+                    "overlap_rmse"
+                ),
                 3,
             ),
         )
 
-    with overlap_cols[3]:
-        metric_card(
-            "Sub-pixel updates",
-            integer(
-                metrics.get("subpixel_changed_count")
-            ),
-        )
 
+    # ------------------------------------------------------------------------
+    # 6. PIXORB CONFIGURATION
+    # ------------------------------------------------------------------------
 
-    # -----------------------------------------------------------------------
-    # PixOrb pipeline
-    #
-    # Long text values are deliberately NOT displayed using st.metric()
-    # because Streamlit truncates them.
-    # -----------------------------------------------------------------------
+    st.markdown(
+        "#### PixOrb configuration"
+    )
 
-    st.markdown("#### PixOrb pipeline")
+    config_col1, config_col2 = st.columns(2)
 
-    pipeline_cols = st.columns(4)
-
-    with pipeline_cols[0]:
-
-        st.markdown("**Feature backend**")
+    with config_col1:
 
         st.markdown(
-            f"### {text_value(metrics.get('backend'))}"
+            "**Feature backend**"
         )
 
-    with pipeline_cols[1]:
-
-        st.markdown("**Geometric model**")
+        st.write(
+            text_value(
+                metrics.get(
+                    "backend"
+                )
+            )
+        )
 
         st.markdown(
-            f"### {text_value(metrics.get('model'))}"
+            "**Geometric model**"
         )
 
-    with pipeline_cols[2]:
+        st.write(
+            text_value(
+                metrics.get(
+                    "model"
+                )
+            )
+        )
 
-        st.markdown("**RANSAC threshold**")
+
+    with config_col2:
 
         st.markdown(
-            f"### {number(metrics.get('ransac_threshold_px'), 2)} px"
+            "**RANSAC threshold**"
         )
 
-    with pipeline_cols[3]:
+        st.write(
+            f"{number(metrics.get('ransac_threshold_px'), 2)} px"
+        )
 
-        st.markdown("**Learned matching**")
+        st.markdown(
+            "**Learned matching**"
+        )
 
-        if metrics.get("learned_available"):
-            st.markdown("### Available")
+        if metrics.get(
+            "learned_available"
+        ):
+            st.write(
+                "Available"
+            )
         else:
-            st.markdown("### Unavailable")
+            st.write(
+                "Unavailable"
+            )
 
 
-    # -----------------------------------------------------------------------
-    # Coarse alignment
-    # -----------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # 7. ADVANCED COARSE ALIGNMENT
+    # ------------------------------------------------------------------------
 
     coarse = metrics.get(
         "coarse_alignment",
         {},
     )
 
-    if isinstance(coarse, dict):
+    if isinstance(
+        coarse,
+        dict,
+    ):
 
-        st.markdown("#### Coarse alignment")
+        with st.expander(
+            "Coarse alignment details",
+            expanded=False,
+        ):
 
-        coarse_cols = st.columns(4)
-
-        with coarse_cols[0]:
-            metric_card(
-                "Estimated scale",
-                number(
-                    coarse.get("scale"),
-                    4,
-                ),
+            st.caption(
+                "Initial scale, rotation and translation estimated "
+                "before learned correspondence matching."
             )
 
-        with coarse_cols[1]:
-            metric_card(
-                "Rotation",
-                f"{number(coarse.get('rotation_deg'), 3)}°",
-            )
+            coarse_col1, coarse_col2 = st.columns(2)
 
-        with coarse_cols[2]:
-            metric_card(
-                "Translation X",
-                f"{number(coarse.get('translation_dx'), 3)} px",
-            )
+            with coarse_col1:
 
-        with coarse_cols[3]:
-            metric_card(
-                "Translation Y",
-                f"{number(coarse.get('translation_dy'), 3)} px",
-            )
+                st.write(
+                    f"**Estimated scale:** "
+                    f"{number(coarse.get('scale'), 4)}"
+                )
 
+                st.write(
+                    f"**Rotation:** "
+                    f"{number(coarse.get('rotation_deg'), 3)}°"
+                )
 
-        confidence_cols = st.columns(4)
+                st.write(
+                    f"**Translation X:** "
+                    f"{number(coarse.get('translation_dx'), 3)} px"
+                )
 
-        with confidence_cols[0]:
-            metric_card(
-                "Scale confidence",
-                number(
-                    coarse.get("scale_confidence"),
-                    3,
-                ),
-            )
+                st.write(
+                    f"**Translation Y:** "
+                    f"{number(coarse.get('translation_dy'), 3)} px"
+                )
 
-        with confidence_cols[1]:
-            metric_card(
-                "Translation confidence",
-                number(
-                    coarse.get("translation_confidence"),
-                    3,
-                ),
-            )
+            with coarse_col2:
 
-        with confidence_cols[2]:
-            metric_card(
-                "Pyramid levels",
-                integer(
-                    coarse.get("pyramid_levels")
-                ),
-            )
+                st.write(
+                    f"**Scale confidence:** "
+                    f"{number(coarse.get('scale_confidence'), 3)}"
+                )
 
-        with confidence_cols[3]:
-            metric_card(
-                "Estimation level",
-                integer(
-                    coarse.get("estimation_level")
-                ),
-            )
+                st.write(
+                    f"**Translation confidence:** "
+                    f"{number(coarse.get('translation_confidence'), 3)}"
+                )
+
+                st.write(
+                    f"**Pyramid levels:** "
+                    f"{integer(coarse.get('pyramid_levels'))}"
+                )
+
+                st.write(
+                    f"**Estimation level:** "
+                    f"{integer(coarse.get('estimation_level'))}"
+                )
 
 
-    # =======================================================================
-    # Full metrics JSON
-    # =======================================================================
+    # ========================================================================
+    # FULL METRICS JSON
+    # ========================================================================
 
     with st.expander(
         "Full metrics JSON",
         expanded=False,
     ):
-        st.json(metrics)
+
+        st.json(
+            metrics
+        )
 
 
-    # =======================================================================
-    # Visual results
-    # =======================================================================
+    # ========================================================================
+    # VISUAL RESULTS
+    # ========================================================================
 
-    st.subheader("Visual results")
-
-    st.caption(
-        "The following outputs are generated by the PixOrb registration pipeline."
+    st.subheader(
+        "Visual results"
     )
 
+    st.caption(
+        "The following outputs are generated directly by the PixOrb "
+        "registration pipeline."
+    )
+
+
     image_labels = [
+
         (
             "reference.png",
             "Reference",
         ),
+
         (
             "source_original.png",
             "Source (original)",
         ),
+
         (
             "matches.png",
             "Matched keypoints",
         ),
+
         (
             "registered.png",
             "Registered source",
         ),
+
         (
             "overlay.png",
             "Overlay — reference + registered",
         ),
+
         (
             "difference_map.png",
             "Difference map",
@@ -676,6 +811,7 @@ if "last_result" in st.session_state:
     ]
 
 
+    # Display three images per row.
     for row_start in range(
         0,
         len(image_labels),
@@ -683,7 +819,8 @@ if "last_result" in st.session_state:
     ):
 
         row_items = image_labels[
-            row_start:row_start + 3
+            row_start:
+            row_start + 3
         ]
 
         img_cols = st.columns(3)
@@ -693,7 +830,10 @@ if "last_result" in st.session_state:
             row_items,
         ):
 
-            fpath = results_dir / fname
+            fpath = (
+                results_dir
+                / fname
+            )
 
             with col:
 
@@ -712,29 +852,37 @@ if "last_result" in st.session_state:
                     )
 
 
-    # =======================================================================
-    # Download artifacts
-    # =======================================================================
+    # ========================================================================
+    # DOWNLOAD ARTIFACTS
+    # ========================================================================
 
-    st.subheader("Download artifacts")
-
-    st.caption(
-        "Download the registered image, correspondence data and evaluation metrics."
+    st.subheader(
+        "Download artifacts"
     )
 
+    st.caption(
+        "Download the registered image, correspondence data and "
+        "evaluation metrics."
+    )
+
+
     downloads = [
+
         (
             "registered.png",
             "⬇️ Registered image",
         ),
+
         (
             "match_points.csv",
             "⬇️ Match points — CSV",
         ),
+
         (
             "match_points.json",
             "⬇️ Match points — JSON",
         ),
+
         (
             "metrics.json",
             "⬇️ Metrics — JSON",
@@ -749,7 +897,10 @@ if "last_result" in st.session_state:
         downloads,
     ):
 
-        fpath = results_dir / fname
+        fpath = (
+            results_dir
+            / fname
+        )
 
         with col:
 
@@ -769,9 +920,9 @@ if "last_result" in st.session_state:
                 )
 
 
-    # =======================================================================
-    # Technical pipeline summary
-    # =======================================================================
+    # ========================================================================
+    # TECHNICAL PIPELINE SUMMARY
+    # ========================================================================
 
     with st.expander(
         "PixOrb processing pipeline"
