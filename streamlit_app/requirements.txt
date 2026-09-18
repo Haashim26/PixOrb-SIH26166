@@ -1,0 +1,10 @@
+streamlit>=1.38
+numpy>=1.26
+scipy>=1.12
+opencv-python-headless>=4.9
+rasterio>=1.3
+Pillow>=10.0
+torch>=2.0
+torchvision>=0.15
+kornia>=0.8
+git+https://github.com/cvg/LightGlue.git
