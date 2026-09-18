@@ -3,6 +3,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt requirements-web.txt ./
+COPY web/requirements.txt ./web/requirements.txt
 RUN pip install --upgrade pip && pip install -r requirements-web.txt && pip install git+https://github.com/cvg/LightGlue.git
 COPY . .
 EXPOSE 7860
