@@ -1,3 +1,13 @@
+---
+title: PixOrb SIH26166
+emoji: 🌙
+colorFrom: blue
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # PixOrb — SIH26166 Final Product
 
 **Smart India Hackathon 2026 · ISRO / Space Technology**
